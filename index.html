@@ -373,113 +373,100 @@ tr:hover td{background:rgba(13,122,107,0.03);}
 
 /* ── MOBILE (< 768px) ─────────────────────────────────────────── */
 @media(max-width:767px){
-  /* Topbar — compact for mobile */
-  #topbar{
-    height:52px;
-    padding:0 16px;
-    padding-left:max(16px, env(safe-area-inset-left));
-    padding-right:max(16px, env(safe-area-inset-right));
-  }
-  .topbar-sub{ display:none; }           /* hide "Clinical Group Portal" subtitle */
+  #topbar{ height:52px; padding:0 max(14px,env(safe-area-inset-left)); }
+  .topbar-sub{ display:none; }
   .topbar-name{ font-size:13px; }
   #liveIndicator .live-badge{ padding:2px 6px; font-size:10px; }
-  #tbEmail{ display:none; }             /* hide email in topbar on mobile */
-
-  /* Nav tabs — scrollable, icon-first on very small screens */
-  #navTabs{
-    padding:0 12px;
-    padding-left:max(12px, env(safe-area-inset-left));
-    overflow-x:auto; -webkit-overflow-scrolling:touch;
-  }
+  #tbEmail{ display:none; }
+  #navTabs{ padding:0 max(10px,env(safe-area-inset-left)); overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .nav-tab{ padding:10px 12px; font-size:12px; gap:5px; }
+  #appMain{ padding:12px; max-width:100%; }
 
-  /* Main content padding */
-  #appMain{ padding:14px; max-width:100%; }
-
-  /* Clock hero — stack vertically on mobile */
+  /* Clock hero — completely redesigned for mobile
+     Status info on top, then a bottom row with time on left + button on right */
   .clock-hero{
-    flex-direction:column; align-items:flex-start;
-    padding:20px; gap:16px;
+    display:flex; flex-direction:column; gap:14px;
+    padding:18px 20px; border-radius:16px;
+    align-items:stretch;
   }
+  .clock-left{ order:1; }
   .clock-right{
-    width:100%; flex-direction:row;
-    justify-content:space-between; align-items:center; gap:12px;
+    order:2; display:flex; flex-direction:row;
+    align-items:center; justify-content:space-between;
+    width:100%; gap:12px;
   }
-  .clock-face{ font-size:36px; }
-  .clock-date-line{ font-size:10.5px; }
-  .clock-status-text{ font-size:22px; }
-  .clock-btn{
-    width:60px; height:60px; font-size:22px;
+  .clock-right > div:first-child{
+    display:flex; flex-direction:column; align-items:flex-start;
   }
+  .clock-face{ font-size:34px; line-height:1.1; text-align:left; }
+  .clock-date-line{ font-size:10.5px; text-align:left; margin-top:2px; }
+  .clock-status-text{ font-size:21px; margin-bottom:3px; }
+  .clock-sub{ font-size:12px; }
+  .clock-status-label{ font-size:10px; margin-bottom:4px; }
+  .clock-badges{ margin-top:8px; }
+  .pulse-ring{ width:66px; height:66px; }
+  .clock-btn{ width:58px; height:58px; font-size:20px; }
+  .clock-btn-label{ font-size:10.5px; }
 
-  /* KPI grids */
+  /* Stat cards — always 2 columns on mobile */
+  .att-stats{ grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .att-stat{ padding:13px 14px; }
+  .att-stat-val{ font-size:19px; }
+  .att-stat-label{ font-size:10px; }
+
   .kpi-grid{ grid-template-columns:1fr 1fr; gap:10px; }
-  .att-stats{ grid-template-columns:1fr 1fr; gap:10px; }
-  .presence-kpi-grid{ grid-template-columns:repeat(4,1fr); gap:8px; font-size:11px; }
+  .kpi-card{ padding:12px 10px; }
   .kpi-val{ font-size:22px; }
   .kpi-label{ font-size:10px; }
-
-  /* Employee cards — full width on mobile */
+  .presence-kpi-grid{ grid-template-columns:repeat(4,1fr); gap:8px; }
   .people-grid{ grid-template-columns:1fr; gap:10px; }
   .emp-card{ padding:14px; }
-  .emp-name{ font-size:13px; }
-
-  /* Tables — horizontal scroll */
   .tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  table{ min-width:580px; }
+  table{ min-width:560px; }
   th,td{ padding:8px 10px; font-size:12px; }
-
-  /* Forms */
   .form-grid{ grid-template-columns:1fr; }
-  .modal-box{ margin:8px; padding:18px; border-radius:12px; }
-
-  /* Auth card */
+  .modal-box{ margin:8px; padding:18px; border-radius:14px; }
   .auth-card{ padding:24px 18px; margin:12px; }
-
-  /* View tabs in admin */
   .view-tabs{ gap:2px; }
   .view-tab{ font-size:11px; padding:5px 6px; }
-
-  /* Section header — stack on mobile */
   .section-h{ flex-direction:column; align-items:flex-start; gap:10px; }
-
-  /* Today summary cards */
-  .att-stat-card{ padding:14px; }
-
-  /* Toast — full width on mobile */
   #toastContainer{ left:12px; right:12px; bottom:max(16px,env(safe-area-inset-bottom)); }
   .toast{ max-width:100%; }
+  .card-body{ padding:14px; }
+  .card-head{ padding:12px 14px; }
 }
 
-/* ── SMALL PHONE (< 480px) — iPhone SE, Galaxy A series ─────── */
+/* ── SMALL PHONE (< 480px) ─────────────────────────────────────── */
 @media(max-width:479px){
   #appMain{ padding:10px; }
   #topbar{ height:48px; padding:0 12px; }
   .topbar-mark{ width:28px; height:28px; font-size:11px; }
   .topbar-name{ font-size:12px; }
   .nav-tab{ padding:8px 10px; font-size:11.5px; }
-  .nav-tab svg{ display:none; }          /* icon-only-ish: hide SVG, keep text */
-
-  .clock-hero{ padding:16px; border-radius:14px; }
-  .clock-face{ font-size:30px; }
+  .nav-tab svg{ display:none; }
+  .clock-hero{ padding:14px 16px; border-radius:14px; gap:12px; }
+  .clock-face{ font-size:28px; }
   .clock-status-text{ font-size:18px; }
-  .clock-btn{ width:52px; height:52px; font-size:20px; }
-
+  .clock-btn{ width:52px; height:52px; font-size:18px; }
+  .pulse-ring{ width:60px; height:60px; }
   .presence-kpi-grid{ grid-template-columns:repeat(2,1fr); gap:8px; }
   .kpi-grid{ grid-template-columns:1fr 1fr; gap:8px; }
   .att-stats{ grid-template-columns:1fr 1fr; gap:8px; }
-  .kpi-val{ font-size:20px; }
-
+  .kpi-val{ font-size:18px; }
   .auth-card{ padding:20px 14px; border-radius:16px; }
   .auth-btn{ padding:13px; font-size:15px; }
-  .auth-input{ padding:11px 14px; font-size:15px; } /* 16px prevents iOS zoom */
+  .auth-input{ padding:12px 14px; font-size:16px; }
 }
 
 /* ── LANDSCAPE PHONE ──────────────────────────────────────────── */
 @media(max-width:767px) and (orientation:landscape){
-  .clock-hero{ flex-direction:row; padding:16px 20px; }
-  .clock-right{ width:auto; flex-direction:column; }
-  #navTabs{ height:44px; }
+  .clock-hero{ flex-direction:row !important; padding:14px 20px; gap:16px; }
+  .clock-left{ order:1 !important; }
+  .clock-right{ order:2 !important; width:auto; flex-direction:column; justify-content:center; }
+  .clock-face{ font-size:26px; }
+  .clock-status-text{ font-size:17px; }
+  #appMain{ padding:10px 16px; }
+  .att-stats{ grid-template-columns:repeat(4,1fr); }
   .nav-tab{ padding:8px 14px; }
 }
 
