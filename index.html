@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
 <title>AttendanceIQ — Clinical Group Portal</title>
 <meta name="theme-color" content="#0A1628">
 <meta name="mobile-web-app-capable" content="yes">
@@ -346,23 +346,174 @@ tr:hover td{background:rgba(13,122,107,0.03);}
 .offline-dot{width:7px;height:7px;border-radius:50%;background:var(--disabled);display:inline-block;}
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
-@media(max-width:768px){
-  #appMain{padding:16px;}
-  .att-stats{grid-template-columns:1fr 1fr;gap:10px;}
-  .kpi-grid{grid-template-columns:1fr 1fr;}
-  .clock-face{font-size:34px;}
-  .clock-status-text{font-size:20px;}
-  .clock-hero{padding:20px;}
-  .form-grid{grid-template-columns:1fr;}
-  .modal-box{margin:8px;}
-  th,td{padding:8px 10px;}
-  #navTabs{padding:0 12px;}
-  .nav-tab{padding:10px 14px;font-size:12px;}
+/* ═══════════════════════════════════════════════════════════════
+   MULTI-PLATFORM RESPONSIVE — Desktop · Laptop · Android · iPhone
+   Breakpoints:
+     xs  < 480px   → iPhone SE, small Android
+     sm  480–767px → iPhone Pro Max, large Android
+     md  768–1023px → iPad, small laptop
+     lg  1024px+   → Desktop, laptop
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── SAFE AREA (iPhone notch / Dynamic Island / home bar) ────── */
+#topbar      { padding-left:max(24px, env(safe-area-inset-left));
+               padding-right:max(24px, env(safe-area-inset-right)); }
+#navTabs     { padding-left:max(24px, env(safe-area-inset-left));
+               padding-right:max(24px, env(safe-area-inset-right)); }
+#appMain     { padding-bottom:max(24px, calc(env(safe-area-inset-bottom) + 16px)); }
+#connStateBar{ padding-top:env(safe-area-inset-top); }
+
+/* ── TABLET (768–1023px) ──────────────────────────────────────── */
+@media(max-width:1023px){
+  #appMain{ padding:20px; }
+  .presence-kpi-grid{ grid-template-columns:repeat(4,1fr); gap:10px; }
+  .people-grid{ grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+  .clock-face{ font-size:38px; }
 }
-@media(max-width:500px){
-  .att-stats{grid-template-columns:1fr;}
-  .kpi-grid{grid-template-columns:1fr;}
-  .auth-card{padding:24px 18px;}
+
+/* ── MOBILE (< 768px) ─────────────────────────────────────────── */
+@media(max-width:767px){
+  /* Topbar — compact for mobile */
+  #topbar{
+    height:52px;
+    padding:0 16px;
+    padding-left:max(16px, env(safe-area-inset-left));
+    padding-right:max(16px, env(safe-area-inset-right));
+  }
+  .topbar-sub{ display:none; }           /* hide "Clinical Group Portal" subtitle */
+  .topbar-name{ font-size:13px; }
+  #liveIndicator .live-badge{ padding:2px 6px; font-size:10px; }
+  #tbEmail{ display:none; }             /* hide email in topbar on mobile */
+
+  /* Nav tabs — scrollable, icon-first on very small screens */
+  #navTabs{
+    padding:0 12px;
+    padding-left:max(12px, env(safe-area-inset-left));
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+  }
+  .nav-tab{ padding:10px 12px; font-size:12px; gap:5px; }
+
+  /* Main content padding */
+  #appMain{ padding:14px; max-width:100%; }
+
+  /* Clock hero — stack vertically on mobile */
+  .clock-hero{
+    flex-direction:column; align-items:flex-start;
+    padding:20px; gap:16px;
+  }
+  .clock-right{
+    width:100%; flex-direction:row;
+    justify-content:space-between; align-items:center; gap:12px;
+  }
+  .clock-face{ font-size:36px; }
+  .clock-date-line{ font-size:10.5px; }
+  .clock-status-text{ font-size:22px; }
+  .clock-btn{
+    width:60px; height:60px; font-size:22px;
+  }
+
+  /* KPI grids */
+  .kpi-grid{ grid-template-columns:1fr 1fr; gap:10px; }
+  .att-stats{ grid-template-columns:1fr 1fr; gap:10px; }
+  .presence-kpi-grid{ grid-template-columns:repeat(4,1fr); gap:8px; font-size:11px; }
+  .kpi-val{ font-size:22px; }
+  .kpi-label{ font-size:10px; }
+
+  /* Employee cards — full width on mobile */
+  .people-grid{ grid-template-columns:1fr; gap:10px; }
+  .emp-card{ padding:14px; }
+  .emp-name{ font-size:13px; }
+
+  /* Tables — horizontal scroll */
+  .tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table{ min-width:580px; }
+  th,td{ padding:8px 10px; font-size:12px; }
+
+  /* Forms */
+  .form-grid{ grid-template-columns:1fr; }
+  .modal-box{ margin:8px; padding:18px; border-radius:12px; }
+
+  /* Auth card */
+  .auth-card{ padding:24px 18px; margin:12px; }
+
+  /* View tabs in admin */
+  .view-tabs{ gap:2px; }
+  .view-tab{ font-size:11px; padding:5px 6px; }
+
+  /* Section header — stack on mobile */
+  .section-h{ flex-direction:column; align-items:flex-start; gap:10px; }
+
+  /* Today summary cards */
+  .att-stat-card{ padding:14px; }
+
+  /* Toast — full width on mobile */
+  #toastContainer{ left:12px; right:12px; bottom:max(16px,env(safe-area-inset-bottom)); }
+  .toast{ max-width:100%; }
+}
+
+/* ── SMALL PHONE (< 480px) — iPhone SE, Galaxy A series ─────── */
+@media(max-width:479px){
+  #appMain{ padding:10px; }
+  #topbar{ height:48px; padding:0 12px; }
+  .topbar-mark{ width:28px; height:28px; font-size:11px; }
+  .topbar-name{ font-size:12px; }
+  .nav-tab{ padding:8px 10px; font-size:11.5px; }
+  .nav-tab svg{ display:none; }          /* icon-only-ish: hide SVG, keep text */
+
+  .clock-hero{ padding:16px; border-radius:14px; }
+  .clock-face{ font-size:30px; }
+  .clock-status-text{ font-size:18px; }
+  .clock-btn{ width:52px; height:52px; font-size:20px; }
+
+  .presence-kpi-grid{ grid-template-columns:repeat(2,1fr); gap:8px; }
+  .kpi-grid{ grid-template-columns:1fr 1fr; gap:8px; }
+  .att-stats{ grid-template-columns:1fr 1fr; gap:8px; }
+  .kpi-val{ font-size:20px; }
+
+  .auth-card{ padding:20px 14px; border-radius:16px; }
+  .auth-btn{ padding:13px; font-size:15px; }
+  .auth-input{ padding:11px 14px; font-size:15px; } /* 16px prevents iOS zoom */
+}
+
+/* ── LANDSCAPE PHONE ──────────────────────────────────────────── */
+@media(max-width:767px) and (orientation:landscape){
+  .clock-hero{ flex-direction:row; padding:16px 20px; }
+  .clock-right{ width:auto; flex-direction:column; }
+  #navTabs{ height:44px; }
+  .nav-tab{ padding:8px 14px; }
+}
+
+/* ── DESKTOP (1024px+) ────────────────────────────────────────── */
+@media(min-width:1024px){
+  #appMain{ padding:28px 32px; max-width:1200px; }
+  .presence-kpi-grid{ grid-template-columns:repeat(8,1fr); }
+  .people-grid{ grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); }
+  .clock-face{ font-size:48px; }
+}
+
+/* ── TOUCH DEVICE IMPROVEMENTS ─────────────────────────────────  */
+@media(hover:none) and (pointer:coarse){
+  /* Larger touch targets on touch devices */
+  .nav-tab{ min-height:44px; }
+  .tb-btn{ min-height:36px; min-width:36px; padding:8px 12px; }
+  .btn{ min-height:40px; }
+  .form-select{ min-height:40px; font-size:16px; } /* prevent iOS zoom on select */
+  .auth-input{ font-size:16px; }  /* critical: prevents iOS auto-zoom on focus */
+  .auth-btn{ min-height:48px; font-size:16px; }
+  .clock-btn{ min-width:56px; min-height:56px; }
+
+  /* Remove hover states that look broken on touch */
+  .emp-card:hover{ border-color:var(--border); box-shadow:var(--card-sh); }
+  .kpi-card:hover{ transform:none; }
+}
+
+/* ── PRINT ─────────────────────────────────────────────────────── */
+@media print{
+  #topbar,#navTabs,#connStateBar,#toastContainer,
+  .tb-btn,.clock-btn,.view-tabs{ display:none !important; }
+  #appMain{ padding:0; max-width:100%; }
+  .page{ display:block !important; }
+  .card{ box-shadow:none; border:1px solid #ddd; }
 }
 
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px;}
