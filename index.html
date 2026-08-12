@@ -5,8 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AttendanceIQ — Clinical Group Portal</title>
 <meta name="theme-color" content="#0A1628">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AttendanceIQ">
+<meta name="description" content="AttendanceIQ — Sagility Clinical Group Workforce Portal">
+<!-- Inline SVG favicon — no 404, works on GitHub Pages without extra files -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230D7A6B'/><text x='16' y='22' font-family='sans-serif' font-size='14' font-weight='800' fill='white' text-anchor='middle'>AIQ</text></svg>">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo="><!-- fallback -->
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
 <style>
@@ -2636,9 +2642,22 @@ async function loadTeamMembers(){
   if(!_sb||!_sbUser)return;
   try{
     const{data}=await _sb.from('aiq_profiles').select('*').order('full_name');
-    _allMembers=data||[];
+    // Deduplicate by user_id (primary key — should be unique, but guard against DB duplicates)
+    // For same full_name duplicates: keep the one with the most recent updated_at
+    const seen = new Map();
+    (data||[]).forEach(m=>{
+      const existing = seen.get(m.user_id);
+      if(!existing){
+        seen.set(m.user_id, m);
+      } else {
+        // Keep more recently updated row
+        const existTs = new Date(existing.updated_at||0).getTime();
+        const newTs   = new Date(m.updated_at||0).getTime();
+        if(newTs > existTs) seen.set(m.user_id, m);
+      }
+    });
+    _allMembers = Array.from(seen.values()).sort((a,b)=>(a.full_name||'').localeCompare(b.full_name||''));
     setText('kpiTeamMembers',_allMembers.length);
-    // Seed employee state map with profile data
     _allMembers.forEach(m=>{
       let emp=_employeeState.get(m.user_id)||{};
       emp.profile=m;
