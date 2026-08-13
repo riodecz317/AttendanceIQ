@@ -547,8 +547,9 @@ tr:hover td{background:rgba(13,122,107,0.03);}
 .emp-avatar-badge.online{background:#16A085;}
 .emp-avatar-badge.away{background:#E67E22;}
 .emp-avatar-badge.offline{background:var(--disabled);}
-.emp-name{font-size:13px;font-weight:700;color:var(--heading);line-height:1.2;}
-.emp-role-dept{font-size:11px;color:var(--muted);margin-top:1px;}
+.emp-name{font-size:13px;font-weight:700;color:var(--heading);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.emp-role-dept{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.emp-card-header > div:last-child{min-width:0;flex:1;overflow:hidden;}
 .emp-status-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11.5px;}
 .emp-last-seen{font-size:10.5px;color:var(--muted);margin-top:4px;}
 
@@ -796,7 +797,7 @@ tr:hover td{background:rgba(13,122,107,0.03);}
   <div class="page" id="page-settings">
     <div class="section-h">
       <div>
-        <div class="section-title">⚙ Settings</div>
+        <div class="section-title">Settings</div>
         <div class="section-sub">Profile, GPS detection, home location, and office sites</div>
       </div>
     </div>
@@ -1884,6 +1885,8 @@ async function onAuthSuccess(user){
   startAttClock();
   updateTodayDateLabel();
   loadRecentAttLogs();
+  // Load members first so _canViewTeam() can check direct reports
+  await loadTeamMembers();
   if(_canViewTeam()){
     $id('tabAdmin').style.display='';
     await initAdminView();
@@ -2005,7 +2008,14 @@ function _isReportsSpecialist(){
 }
 // Who can see the Team View tab and export team data
 function _canViewTeam(){
-  return _isAdmin() || _isManager() || _isReportsSpecialist();
+  if(_isAdmin() || _isManager() || _isReportsSpecialist()) return true;
+  // Also allow any user who has at least one direct report assigned to them
+  // (a 'member' role user can still be a supervisor in the hierarchy)
+  if(_sbUser && _allMembers.length){
+    const hasDirectReports = _allMembers.some(m=>m.manager_id===_sbUser.id);
+    if(hasDirectReports) return true;
+  }
+  return false;
 }
 // Export scope: admin + reports_specialist = ALL data; managers/supervisors = own team only
 function _exportScope(){
@@ -2925,12 +2935,11 @@ function clearActivityFeed(){_activityLog=[];renderActivityFeed();}
 //  ADMIN VIEW INITIALIZATION
 // ══════════════════════════════════════════════════════════════
 async function initAdminView(){
-  // Phase 1: Initial data load
-  await loadTeamMembers();
+  // aiq_profiles already loaded by onAuthSuccess before canViewTeam check
+  if(!_allMembers.length) await loadTeamMembers();
   await fetchAllPresence();
-  await fetchTodayAttendance();   // ← seed attendance on first load
+  await fetchTodayAttendance();
   await loadTeamLogs();
-  // Render
   renderPresenceDashboard();
   updatePresenceKPIs();
   setText('presenceLastSync','Last sync: '+new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',hour12:true}));
@@ -3077,21 +3086,15 @@ function getVisibleMembers(){
   // Determine which members this user can see based on role
   const filter = $id('presenceFilter')?.value || 'all';
   const isFullAdmin = _isAdmin();
-  const isMgr = ['manager','program_manager','dept_manager','supervisor'].includes(_sbProfile.role);
+  // isScopedUser: any non-admin who has direct reports (manager, supervisor, or member-as-supervisor)
+  const isScopedUser = !isFullAdmin && _allMembers.some(m=>m.manager_id===_sbUser?.id);
 
-  // For managers/supervisors — default to direct reports only
-  // unless they explicitly chose 'all'
+  // Scoped users default to their direct reports
   let base = _allMembers;
-  if(!isFullAdmin && isMgr){
-    // Filter to direct reports (members whose manager_id = current user)
+  if(isScopedUser){
     const directReportIds = new Set(_allMembers.filter(m=>m.manager_id===_sbUser?.id).map(m=>m.user_id));
-    // Always include self
-    directReportIds.add(_sbUser?.id);
-    if(filter==='all'){
-      base = _allMembers.filter(m=>directReportIds.has(m.user_id));
-    } else {
-      base = _allMembers.filter(m=>directReportIds.has(m.user_id));
-    }
+    directReportIds.add(_sbUser?.id); // always include self
+    base = _allMembers.filter(m=>directReportIds.has(m.user_id));
   }
 
   // Apply presence filter
@@ -3119,12 +3122,11 @@ function renderPresenceDashboard(){
   const visible = getVisibleMembers();
 
   // Auto-set filter label for managers
-  const isMgr = !_isAdmin() && ['manager','program_manager','dept_manager','supervisor'].includes(_sbProfile.role);
+  // Auto-default scoped users (non-admins with direct reports) to "My Direct Reports"
   const filterEl=$id('presenceFilter');
-  if(isMgr && filterEl && filterEl.value==='all'){
-    // Show "My Direct Reports" as default for managers
+  if(!_isAdmin() && filterEl && filterEl.value==='all'){
     const directCount = _allMembers.filter(m=>m.manager_id===_sbUser?.id).length;
-    if(directCount>0 && filterEl.value==='all') filterEl.value='direct';
+    if(directCount>0) filterEl.value='direct';
   }
 
   if(!visible.length){
@@ -3161,7 +3163,7 @@ function buildEmployeeCard(m){
       <div style="flex:1;min-width:0">
         <div class="emp-name">${escHtml(m.full_name||m.email||'—')}</div>
         <div class="emp-role-dept">${(m.role||'member').charAt(0).toUpperCase()+(m.role||'member').slice(1)}${m.department?' · '+escHtml(m.department):''}</div>
-        ${m.email?`<div style="font-size:10px;color:var(--disabled);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px" title="${escHtml(m.email)}">${escHtml(m.email)}</div>`:''}
+        ${m.email?`<div style="font-size:10px;color:var(--disabled);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%" title="${escHtml(m.email)}">${escHtml(m.email)}</div>`:''}
       </div>
     </div>
     <div class="emp-status-row">
