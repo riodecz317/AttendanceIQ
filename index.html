@@ -941,7 +941,16 @@ tr:hover td{background:rgba(13,122,107,0.03);}
       <div class="card">
         <div class="card-head">
           <span class="card-title">Employee Presence</span>
-          <span style="font-size:11px;color:var(--muted)" id="presenceLastSync">Last sync: —</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select class="form-select" id="presenceFilter" onchange="applyPresenceFilter()" style="padding:5px 10px;font-size:12px;width:auto">
+              <option value="all">All Members</option>
+              <option value="direct">My Direct Reports</option>
+              <option value="online">Online Only</option>
+              <option value="clocked">Clocked In</option>
+              <option value="offline">Offline</option>
+            </select>
+            <span style="font-size:11px;color:var(--muted)" id="presenceLastSync">Last sync: —</span>
+          </div>
         </div>
         <div class="card-body" id="teamPresenceGrid">
           <div class="empty-state" style="padding:16px"><div class="empty-sub">Loading presence data…</div></div>
@@ -2539,24 +2548,59 @@ async function saveAllHierarchy(){
 function renderOrgChart(){
   const el=$id('orgChartBody');if(!el)return;
   const roots=_allMembers.filter(m=>!m.manager_id);
-  if(!roots.length){el.innerHTML='<div style="padding:16px;color:var(--muted);font-size:13px">No hierarchy configured yet. Assign reporting lines above and click Save All.</div>';return;}
-  function renderNode(m,depth=0){
+  if(!roots.length){
+    el.innerHTML='<div style="padding:16px;color:var(--muted);font-size:13px">No hierarchy configured yet. Assign reporting lines above and click Save All.</div>';
+    return;
+  }
+
+  // Track collapsed nodes in a Set
+  if(!window._orgCollapsed) window._orgCollapsed = new Set();
+
+  function renderNode(m, depth=0){
     const children=_allMembers.filter(x=>x.manager_id===m.user_id);
     const color=nameToColor(m.full_name||'');
-    return `<div style="margin-left:${depth*20}px;margin-bottom:6px">
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;max-width:480px">
-        ${depth>0?'<span style="color:var(--muted)">↳</span>':''}
-        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${nameToInitials(m.full_name||m.email||'?')}</div>
-        <div style="flex:1">
-          <div style="font-size:12.5px;font-weight:700;color:var(--heading)">${escHtml(m.full_name||m.email)}</div>
-          <div style="font-size:10.5px;color:var(--muted)">${m.global_id?m.global_id+' · ':''}${m.role||'member'}</div>
+    const initials=nameToInitials(m.full_name||m.email||'?');
+    const hasChildren=children.length>0;
+    const isCollapsed=window._orgCollapsed.has(m.user_id);
+    const uid=m.user_id;
+    const indent=depth*24;
+
+    const chevron=hasChildren
+      ? `<button onclick="toggleOrgNode('${uid}')" style="background:none;border:1px solid var(--border);border-radius:6px;width:22px;height:22px;cursor:pointer;color:var(--muted);font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▶':'▼'}</button>`
+      : `<span style="width:22px;display:inline-block"></span>`;
+
+    const nodeHtml=`
+      <div style="margin-left:${indent}px;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${depth===0?'var(--surface)':'var(--surface2)'};border:1px solid var(--border);border-radius:10px;max-width:520px">
+          ${depth>0?'<span style="color:var(--muted);font-size:13px">↳</span>':''}
+          ${chevron}
+          <div style="width:30px;height:30px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.full_name||m.email)}</div>
+            <div style="font-size:10.5px;color:var(--muted)">${m.global_id?m.global_id+' · ':''}${m.role||'member'}${m.department?' · '+m.department:''}</div>
+          </div>
+          <span style="background:var(--surface);border:1px solid var(--border);padding:2px 8px;border-radius:6px;font-size:10.5px;color:var(--muted);white-space:nowrap">${children.length} report${children.length!==1?'s':''}</span>
         </div>
-        <span style="background:var(--surface);border:1px solid var(--border);padding:2px 8px;border-radius:6px;font-size:10.5px;color:var(--muted)">${children.length} report${children.length!==1?'s':''}</span>
-      </div>
-      ${children.map(c=>renderNode(c,depth+1)).join('')}
-    </div>`;
+        ${hasChildren && !isCollapsed
+          ? `<div id="org-children-${uid}">${children.map(c=>renderNode(c,depth+1)).join('')}</div>`
+          : hasChildren
+          ? `<div id="org-children-${uid}" style="display:none">${children.map(c=>renderNode(c,depth+1)).join('')}</div>`
+          : ''}
+      </div>`;
+    return nodeHtml;
   }
+
   el.innerHTML=roots.map(r=>renderNode(r)).join('');
+}
+
+function toggleOrgNode(userId){
+  if(!window._orgCollapsed) window._orgCollapsed=new Set();
+  if(window._orgCollapsed.has(userId)){
+    window._orgCollapsed.delete(userId);
+  } else {
+    window._orgCollapsed.add(userId);
+  }
+  renderOrgChart();
 }
 
 // ── LOCATION DETECTION ────────────────────────────────────────
@@ -3029,10 +3073,65 @@ function getEffectiveStatus(emp){
   return p.status || 'offline';
 }
 
+function getVisibleMembers(){
+  // Determine which members this user can see based on role
+  const filter = $id('presenceFilter')?.value || 'all';
+  const isFullAdmin = _isAdmin();
+  const isMgr = ['manager','program_manager','dept_manager','supervisor'].includes(_sbProfile.role);
+
+  // For managers/supervisors — default to direct reports only
+  // unless they explicitly chose 'all'
+  let base = _allMembers;
+  if(!isFullAdmin && isMgr){
+    // Filter to direct reports (members whose manager_id = current user)
+    const directReportIds = new Set(_allMembers.filter(m=>m.manager_id===_sbUser?.id).map(m=>m.user_id));
+    // Always include self
+    directReportIds.add(_sbUser?.id);
+    if(filter==='all'){
+      base = _allMembers.filter(m=>directReportIds.has(m.user_id));
+    } else {
+      base = _allMembers.filter(m=>directReportIds.has(m.user_id));
+    }
+  }
+
+  // Apply presence filter
+  if(filter==='direct'){
+    const drIds = new Set(_allMembers.filter(m=>m.manager_id===_sbUser?.id).map(m=>m.user_id));
+    drIds.add(_sbUser?.id);
+    base = _allMembers.filter(m=>drIds.has(m.user_id));
+  } else if(filter==='online'){
+    base = base.filter(m=>getEffectiveStatus(_employeeState.get(m.user_id)||{})!=='offline');
+  } else if(filter==='clocked'){
+    base = base.filter(m=>(_employeeState.get(m.user_id)||{}).attendance?.clocked_in);
+  } else if(filter==='offline'){
+    base = base.filter(m=>getEffectiveStatus(_employeeState.get(m.user_id)||{})==='offline');
+  }
+  return base;
+}
+
+function applyPresenceFilter(){
+  renderPresenceDashboard();
+  updatePresenceKPIs();
+}
+
 function renderPresenceDashboard(){
   const el=$id('teamPresenceGrid');if(!el)return;
-  if(!_allMembers.length){el.innerHTML='<div class="empty-state" style="padding:16px"><div class="empty-sub">No team members found</div></div>';return;}
-  el.innerHTML=`<div class="people-grid">${_allMembers.map(m=>buildEmployeeCard(m)).join('')}</div>`;
+  const visible = getVisibleMembers();
+
+  // Auto-set filter label for managers
+  const isMgr = !_isAdmin() && ['manager','program_manager','dept_manager','supervisor'].includes(_sbProfile.role);
+  const filterEl=$id('presenceFilter');
+  if(isMgr && filterEl && filterEl.value==='all'){
+    // Show "My Direct Reports" as default for managers
+    const directCount = _allMembers.filter(m=>m.manager_id===_sbUser?.id).length;
+    if(directCount>0 && filterEl.value==='all') filterEl.value='direct';
+  }
+
+  if(!visible.length){
+    el.innerHTML='<div class="empty-state" style="padding:16px"><div class="empty-sub">No members match this filter</div></div>';
+    return;
+  }
+  el.innerHTML=`<div class="people-grid">${visible.map(m=>buildEmployeeCard(m)).join('')}</div>`;
 }
 
 function buildEmployeeCard(m){
@@ -3087,9 +3186,10 @@ function updateEmployeeCard(uid){
 
 function updatePresenceKPIs(){
   if(!_canViewTeam()) return;
+  const visible = getVisibleMembers();
+  const total=visible.length;
   let online=0,away=0,offline=0,clockedIn=0,onsite=0,home=0;
-  const total=_allMembers.length;
-  _allMembers.forEach(m=>{
+  visible.forEach(m=>{
     const emp=_employeeState.get(m.user_id)||{};
     const st=getEffectiveStatus(emp);
     if(st==='online') online++;
@@ -3140,7 +3240,12 @@ async function loadTeamLogs(){
     const{data:profiles2}=await _sb.from('aiq_profiles').select('user_id,full_name,department');
     const profileMap2=new Map((profiles2||[]).map(p=>[p.user_id,p]));
     let data=rawData||[];
-    if(scope==='team'){const tids=new Set(_allMembers.map(m=>m.user_id));data=data.filter(r=>tids.has(r.user_id));}
+    if(scope==='team'){
+      // Managers see only direct reports; admins see all
+      const drIds=new Set(_allMembers.filter(m=>m.manager_id===_sbUser.id).map(m=>m.user_id));
+      drIds.add(_sbUser.id); // include self
+      data=data.filter(r=>drIds.has(r.user_id));
+    }
     if(!data.length){wrap.innerHTML='<div class="empty-state" style="padding:24px"><div class="empty-icon">📊</div><div class="empty-sub">No records in this period</div></div>';updateAdminKPIs([]);return;}
     // Seed today's attendance into employee state — always overwrite (no skip)
     const todayActive = data.filter(r=>r.clock_in_time.startsWith(today)&&!r.clock_out_time);
@@ -3215,8 +3320,10 @@ async function exportTeamCSV(){
     // Step 3: For 'team' scope, filter logs to only this manager's team members
     let filteredLogs = logs;
     if(scope === 'team'){
-      const teamIds = new Set(_allMembers.map(m=>m.user_id));
-      filteredLogs = logs.filter(r=>teamIds.has(r.user_id));
+      // Managers see only direct reports
+      const drIds=new Set(_allMembers.filter(m=>m.manager_id===_sbUser.id).map(m=>m.user_id));
+      drIds.add(_sbUser.id);
+      filteredLogs = logs.filter(r=>drIds.has(r.user_id));
     }
 
     if(!filteredLogs.length){showToast('No records in your scope to export','info');return;}
