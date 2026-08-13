@@ -618,6 +618,10 @@ tr:hover td{background:rgba(13,122,107,0.03);}
         <input class="auth-input" type="text" id="authFullName" placeholder="Your full name">
       </div>
       <div class="auth-field">
+        <label for="authGlobalId">Global ID <span style="color:var(--muted);font-weight:400;font-size:11px">(e.g. SG123456)</span></label>
+        <input class="auth-input" type="text" id="authGlobalId" placeholder="SG123456" pattern="[A-Za-z]{2}[0-9]{6}" style="text-transform:uppercase">
+      </div>
+      <div class="auth-field">
         <label for="authEmailS">Email</label>
         <input class="auth-input" type="email" id="authEmailS" placeholder="you@sagility.com">
       </div>
@@ -683,7 +687,7 @@ tr:hover td{background:rgba(13,122,107,0.03);}
   </button>
   <button class="nav-tab" id="tabSettings" data-tab="settings" onclick="switchTab('settings')">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    Detection Settings
+    ⚙ Settings
   </button>
   <button class="nav-tab" id="tabAdmin" data-tab="admin" onclick="switchTab('admin')" style="display:none">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -792,8 +796,36 @@ tr:hover td{background:rgba(13,122,107,0.03);}
   <div class="page" id="page-settings">
     <div class="section-h">
       <div>
-        <div class="section-title">Detection Settings</div>
-        <div class="section-sub">Configure GPS, home location, and office sites</div>
+        <div class="section-title">⚙ Settings</div>
+        <div class="section-sub">Profile, GPS detection, home location, and office sites</div>
+      </div>
+    </div>
+
+    <!-- Profile Edit Card -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head"><span class="card-title">👤 My Profile</span>
+        <button class="btn btn-primary btn-sm" onclick="saveProfileSettings()">💾 Save</button>
+      </div>
+      <div class="card-body">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="form-label">Full Name</label>
+            <input class="form-input" id="profileFullName" type="text" placeholder="Your full name">
+          </div>
+          <div>
+            <label class="form-label">Global ID <span style="color:var(--muted);font-size:11px">(e.g. SG123456)</span></label>
+            <input class="form-input" id="profileGlobalId" type="text" placeholder="SG123456" style="text-transform:uppercase">
+          </div>
+          <div>
+            <label class="form-label">Department / Team</label>
+            <input class="form-input" id="profileDept" type="text" placeholder="Clinical Group">
+          </div>
+          <div>
+            <label class="form-label">Email <span style="color:var(--muted);font-size:11px">(read-only)</span></label>
+            <input class="form-input" id="profileEmail" type="email" disabled style="opacity:.6">
+          </div>
+        </div>
+        <div id="profileSaveMsg" style="margin-top:10px;font-size:12.5px;display:none"></div>
       </div>
     </div>
 
@@ -901,6 +933,7 @@ tr:hover td{background:rgba(13,122,107,0.03);}
       <button class="view-tab active" onclick="switchAdminView('presence')" id="vt-presence">🟢 Live Presence</button>
       <button class="view-tab" onclick="switchAdminView('logs')" id="vt-logs">📋 Attendance Logs</button>
       <button class="view-tab" onclick="switchAdminView('activity')" id="vt-activity">📡 Activity Feed</button>
+      <button class="view-tab" onclick="switchAdminView('hierarchy')" id="vt-hierarchy">🏗 Hierarchy</button>
     </div>
 
     <!-- PRESENCE VIEW -->
@@ -935,6 +968,31 @@ tr:hover td{background:rgba(13,122,107,0.03);}
         </div>
         <div class="card-body" id="activityFeedBody">
           <div class="empty-state" style="padding:16px"><div class="empty-sub">Waiting for activity…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HIERARCHY VIEW -->
+    <div id="adminView-hierarchy" style="display:none">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head">
+          <span class="card-title">🏗 Team Hierarchy</span>
+          <button class="btn btn-primary btn-sm" onclick="saveAllHierarchy()">💾 Save All</button>
+        </div>
+        <div class="card-body">
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px">
+            Assign reporting lines for each team member. <strong>Reports To</strong> sets who they report up to. <strong>Supervisor Of</strong> is auto-derived from others' settings.
+          </p>
+          <div id="hierarchyGrid" style="display:flex;flex-direction:column;gap:10px">
+            <div class="empty-state" style="padding:16px"><div class="empty-sub">Loading team…</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Org chart preview -->
+      <div class="card">
+        <div class="card-head"><span class="card-title">📊 Org Chart Preview</span></div>
+        <div class="card-body" id="orgChartBody">
+          <div class="empty-state" style="padding:16px"><div class="empty-sub">Save hierarchy to see org chart</div></div>
         </div>
       </div>
     </div>
@@ -1702,11 +1760,14 @@ async function doLogin(){
 async function doSignup(){
   if(!_sb){setAuthMsg('⚠ Backend unavailable','error');return;}
   const name=($id('authFullName')?.value||'').trim();
+  const globalId=($id('authGlobalId')?.value||'').trim().toUpperCase();
   const email=($id('authEmailS')?.value||'').trim();
   const pass=$id('authPasswordS')?.value||'';
   const dept=($id('authDept')?.value||'').trim();
 
   if(!name||!email||!pass){setAuthMsg('Please fill all required fields.','error');return;}
+  if(!globalId){setAuthMsg('Please enter your Global ID (e.g. SG123456).','error');return;}
+  if(!/^[A-Za-z]{2}[0-9]{6}$/.test(globalId)){setAuthMsg('Global ID must be 2 letters + 6 digits (e.g. SG123456).','error');return;}
   if(pass.length<6){setAuthMsg('Password must be at least 6 characters.','error');return;}
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setAuthMsg('Please enter a valid email address.','error');return;}
 
@@ -1717,7 +1778,7 @@ async function doSignup(){
   try{
     const{data:signupData, error:signupErr} = await _sb.auth.signUp({
       email, password:pass,
-      options:{ data:{ full_name:name, department:dept } }
+      options:{ data:{ full_name:name, department:dept, global_id:globalId } }
     });
 
     // ── Detect already-registered (422 or message-based) ─────────
@@ -1860,6 +1921,7 @@ async function upsertProfile(user){
       full_name,
       department,
       role,
+      global_id:  meta.global_id || data?.global_id || null,
     };
 
     // aiq_profiles has no last_seen column — clean single upsert
@@ -1948,6 +2010,7 @@ function switchTab(tab){
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+tab));
   if(tab==='logs') loadRecentAttLogs();
+  if(tab==='settings') loadProfileSettings();
   if(tab==='admin'){
     if(_canViewTeam()){
       refreshPresenceDashboard();
@@ -2191,11 +2254,18 @@ async function exportAttCSV(){
       .order('clock_in_time',{ascending:false});
     if(error) throw error;
     if(!data?.length){showToast('No records to export','info');return;}
-    const hdr=['Date','Clock In','Clock Out','Duration (h:m)','Location Type','Site','Detection Method','Override Reason'];
+    const toTZ=(iso,tz)=>iso?new Date(iso).toLocaleString('en-US',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:true,month:'short',day:'2-digit',year:'numeric'}):'';
+    const hdr=['Global ID','Name','Date','Clock In (Device)','Clock In PH (UTC+8)','Clock In EST (UTC-5)','Clock Out (Device)','Clock Out PH','Clock Out EST','Duration (h:m)','Location Type','Site','Detection Method','Override Reason'];
     const rows=data.map(r=>[
+      _sbProfile.global_id||'',
+      _sbProfile.full_name||'',
       fmtDate(r.clock_in_time),
       fmtTime(r.clock_in_time),
+      toTZ(r.clock_in_time,'Asia/Manila'),
+      toTZ(r.clock_in_time,'America/New_York'),
       r.clock_out_time ? fmtTime(r.clock_out_time) : 'Ongoing',
+      r.clock_out_time ? toTZ(r.clock_out_time,'Asia/Manila') : 'Ongoing',
+      r.clock_out_time ? toTZ(r.clock_out_time,'America/New_York') : 'Ongoing',
       r.clock_out_time ? calcDuration(r.clock_in_time,r.clock_out_time) : '',
       r.location_type||'',
       r.site_name||'',
@@ -2208,7 +2278,48 @@ async function exportAttCSV(){
   }catch(e){showToast('Export failed: '+e.message,'error');console.error('exportAttCSV:',e);}
 }
 
-// ── HOME LOCATION ─────────────────────────────────────────────
+// ── PROFILE SETTINGS ─────────────────────────────────────────
+function loadProfileSettings(){
+  if(!_sbUser||!_sbProfile) return;
+  const f = v=>{ const el=$id(v[0]); if(el) el.value=v[1]||''; };
+  f(['profileFullName', _sbProfile.full_name]);
+  f(['profileGlobalId', _sbProfile.global_id]);
+  f(['profileDept',     _sbProfile.department]);
+  f(['profileEmail',    _sbUser.email]);
+}
+
+async function saveProfileSettings(){
+  if(!_sb||!_sbUser){ showToast('Login required','warn'); return; }
+  const name    = ($id('profileFullName')?.value||'').trim();
+  const globalId= ($id('profileGlobalId')?.value||'').trim().toUpperCase();
+  const dept    = ($id('profileDept')?.value||'').trim();
+  const msg     = $id('profileSaveMsg');
+
+  if(!name){ showToast('Full name is required','warn'); return; }
+  if(globalId && !/^[A-Za-z]{2}[0-9]{6}$/.test(globalId)){
+    showToast('Global ID must be 2 letters + 6 digits (e.g. SG123456)','warn'); return;
+  }
+
+  try{
+    const{error} = await _sb.from('aiq_profiles').update({
+      full_name:  name,
+      global_id:  globalId || null,
+      department: dept,
+      updated_at: new Date().toISOString(),
+    }).eq('user_id', _sbUser.id);
+
+    if(error) throw error;
+    _sbProfile.full_name  = name;
+    _sbProfile.global_id  = globalId;
+    _sbProfile.department = dept;
+    updateUserUI(name, _sbProfile.role, _sbUser.email);
+    showToast('✅ Profile saved','success');
+    if(msg){ msg.textContent='✅ Saved successfully'; msg.style.display=''; msg.style.color='var(--success)'; setTimeout(()=>msg.style.display='none',3000); }
+  }catch(e){
+    showToast('Save failed: '+e.message,'error');
+    if(msg){ msg.textContent='⚠ Save failed: '+e.message; msg.style.display=''; msg.style.color='var(--danger)'; }
+  }
+}
 function loadHomeProfile(){
   try{const s=SafeStorage.getItem('rioone_home_profile');if(s){const p=JSON.parse(s);attProfile.homeLat=p.homeLat||null;attProfile.homeLng=p.homeLng||null;attProfile.homeName=p.homeName||'My Home';attProfile.homeAddr=p.homeAddr||'';}}catch(e){}
   renderHomeCard();
@@ -2363,6 +2474,89 @@ async function deleteSite(idOrName){
   allSites=allSites.filter(s=>String(s.id||s.name)!==idOrName);
   try{SafeStorage.setItem('rioone_sites',JSON.stringify(allSites));}catch(e){}
   renderSiteGrid();showToast('🗑 Site removed','info');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HIERARCHY EDITOR (Admin only)
+// ══════════════════════════════════════════════════════════════
+function loadHierarchyEditor(){
+  const grid = $id('hierarchyGrid');
+  if(!grid||!_allMembers.length) return;
+
+  grid.innerHTML = _allMembers.map(m=>{
+    const opts = _allMembers
+      .filter(x=>x.user_id!==m.user_id)
+      .map(x=>{
+        const selected=(x.user_id===m.manager_id)?'selected':'';
+        return `<option value="${x.user_id}" ${selected}>${escHtml(x.full_name||x.email)} (${x.role||'member'})</option>`;
+      }).join('');
+    const directReports = _allMembers.filter(x=>x.manager_id===m.user_id);
+    const drNames = directReports.length
+      ? directReports.map(x=>`<span style="background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:6px;font-size:11px;display:inline-block;margin:2px">${escHtml(x.full_name||x.email)}</span>`).join('')
+      : '<span style="color:var(--muted);font-size:12px">No direct reports</span>';
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:180px;flex:1">
+        <div style="width:36px;height:36px;border-radius:50%;background:${nameToColor(m.full_name||'')};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0">${nameToInitials(m.full_name||m.email||'?')}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--heading)">${escHtml(m.full_name||m.email)}</div>
+          <div style="font-size:11px;color:var(--muted)">${m.global_id?m.global_id+' · ':''}${m.role||'member'}${m.department?' · '+m.department:''}</div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:180px">
+        <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">REPORTS TO</label>
+        <select class="form-select" id="mgr-${m.user_id}" style="font-size:12.5px;padding:6px 10px">
+          <option value="">— None (Top of hierarchy) —</option>${opts}
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">DIRECT REPORTS</div>
+        <div>${drNames}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function saveAllHierarchy(){
+  if(!_sb||!_sbUser||!_isAdmin()){ showToast('Admin access required','warn'); return; }
+  const btn=document.querySelector('#adminView-hierarchy .btn-primary');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  let saved=0,errors=0;
+  for(const m of _allMembers){
+    const sel=$id('mgr-'+m.user_id);if(!sel)continue;
+    const managerId=sel.value||null;
+    try{
+      const{error}=await _sb.from('aiq_profiles').update({manager_id:managerId,updated_at:new Date().toISOString()}).eq('user_id',m.user_id);
+      if(error)errors++;
+      else{m.manager_id=managerId;const emp=_employeeState.get(m.user_id)||{};if(emp.profile)emp.profile.manager_id=managerId;_employeeState.set(m.user_id,emp);saved++;}
+    }catch(e){errors++;}
+  }
+  if(btn){btn.disabled=false;btn.textContent='💾 Save All';}
+  showToast(errors===0?`✅ Hierarchy saved for ${saved} members`:`⚠ Saved ${saved}, ${errors} errors`,'success',4000);
+  loadHierarchyEditor();
+  renderOrgChart();
+}
+
+function renderOrgChart(){
+  const el=$id('orgChartBody');if(!el)return;
+  const roots=_allMembers.filter(m=>!m.manager_id);
+  if(!roots.length){el.innerHTML='<div style="padding:16px;color:var(--muted);font-size:13px">No hierarchy configured yet. Assign reporting lines above and click Save All.</div>';return;}
+  function renderNode(m,depth=0){
+    const children=_allMembers.filter(x=>x.manager_id===m.user_id);
+    const color=nameToColor(m.full_name||'');
+    return `<div style="margin-left:${depth*20}px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;max-width:480px">
+        ${depth>0?'<span style="color:var(--muted)">↳</span>':''}
+        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${nameToInitials(m.full_name||m.email||'?')}</div>
+        <div style="flex:1">
+          <div style="font-size:12.5px;font-weight:700;color:var(--heading)">${escHtml(m.full_name||m.email)}</div>
+          <div style="font-size:10.5px;color:var(--muted)">${m.global_id?m.global_id+' · ':''}${m.role||'member'}</div>
+        </div>
+        <span style="background:var(--surface);border:1px solid var(--border);padding:2px 8px;border-radius:6px;font-size:10.5px;color:var(--muted)">${children.length} report${children.length!==1?'s':''}</span>
+      </div>
+      ${children.map(c=>renderNode(c,depth+1)).join('')}
+    </div>`;
+  }
+  el.innerHTML=roots.map(r=>renderNode(r)).join('');
 }
 
 // ── LOCATION DETECTION ────────────────────────────────────────
@@ -2919,12 +3113,13 @@ function updatePresenceKPIs(){
 
 function switchAdminView(view){
   _currentAdminView=view;
-  ['presence','logs','activity'].forEach(v=>{
+  ['presence','logs','activity','hierarchy'].forEach(v=>{
     const el=$id('adminView-'+v);if(el)el.style.display=v===view?'':'none';
     const tab=$id('vt-'+v);if(tab)tab.classList.toggle('active',v===view);
   });
   if(view==='logs') loadTeamLogs();
   if(view==='activity') renderActivityFeed();
+  if(view==='hierarchy') loadHierarchyEditor();
 }
 
 async function loadTeamLogs(){
@@ -3012,9 +3207,9 @@ async function exportTeamCSV(){
     if(logsErr) throw logsErr;
     if(!logs?.length){showToast('No records to export','info');return;}
 
-    // Step 2: Fetch profiles separately and build lookup map
+    // Step 2: Fetch profiles with global_id, manager, hierarchy
     const{data:profiles} = await _sb.from('aiq_profiles')
-      .select('user_id,full_name,department,role');
+      .select('user_id,full_name,department,role,global_id,manager_id,supervisor_id');
     const profileMap = new Map((profiles||[]).map(p=>[p.user_id, p]));
 
     // Step 3: For 'team' scope, filter logs to only this manager's team members
@@ -3026,17 +3221,27 @@ async function exportTeamCSV(){
 
     if(!filteredLogs.length){showToast('No records in your scope to export','info');return;}
 
-    // Step 4: Build CSV with name/dept from profile map
-    const hdr = ['Name','Role','Department','Date','Clock In','Clock Out','Duration (h:m)','Location Type','Site','Detection Method','Override Reason'];
+    // Step 4: Build CSV with timezone columns
+    const toTZ=(iso,tz)=>iso?new Date(iso).toLocaleString('en-US',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:true,month:'short',day:'2-digit',year:'numeric'}):'';
+    const hdr = ['Global ID','Name','Role','Department','Reports To','Date','Clock In (Device)','Clock In PH (UTC+8)','Clock In EST (UTC-5)','Clock Out (Device)','Clock Out PH','Clock Out EST','Duration (h:m)','Location Type','Site','Detection Method','Override Reason'];
     const rows = filteredLogs.map(r=>{
       const prof = profileMap.get(r.user_id);
+      const mgr  = prof?.manager_id ? profileMap.get(prof.manager_id) : null;
+      const sup  = prof?.supervisor_id ? profileMap.get(prof.supervisor_id) : null;
+      const reportsTo = mgr?.full_name || sup?.full_name || '';
       return [
+        prof?.global_id  || '',
         prof?.full_name  || r.user_id,
         prof?.role       || '',
         prof?.department || '',
+        reportsTo,
         fmtDate(r.clock_in_time),
         fmtTime(r.clock_in_time),
+        toTZ(r.clock_in_time,'Asia/Manila'),
+        toTZ(r.clock_in_time,'America/New_York'),
         r.clock_out_time ? fmtTime(r.clock_out_time) : 'Ongoing',
+        r.clock_out_time ? toTZ(r.clock_out_time,'Asia/Manila') : 'Ongoing',
+        r.clock_out_time ? toTZ(r.clock_out_time,'America/New_York') : 'Ongoing',
         r.clock_out_time ? calcDuration(r.clock_in_time,r.clock_out_time) : '',
         r.location_type  || '',
         r.site_name      || '',
