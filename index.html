@@ -238,7 +238,7 @@ body {
 .mt-16{margin-top:16px;}
 
 /* ── TABLE ───────────────────────────────────────────── */
-.tbl-wrap{overflow-x:auto;}
+.tbl-wrap{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;border-radius:var(--radius);}
 table{width:100%;border-collapse:collapse;}
 th{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--surface2);text-align:left;white-space:nowrap;}
 td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle;}
@@ -417,16 +417,18 @@ tr:hover td{background:rgba(13,122,107,0.03);}
   .att-stat-val{ font-size:19px; }
   .att-stat-label{ font-size:10px; }
 
-  .kpi-grid{ grid-template-columns:1fr 1fr; gap:10px; }
-  .kpi-card{ padding:12px 10px; }
-  .kpi-val{ font-size:22px; }
-  .kpi-label{ font-size:10px; }
+  .kpi-grid{ grid-template-columns:repeat(3,1fr); gap:8px; }
+  .kpi-card{ padding:10px 8px; }
+  .kpi-val{ font-size:18px; }
+  .kpi-label{ font-size:9.5px; }
   .presence-kpi-grid{ grid-template-columns:repeat(4,1fr); gap:8px; }
   .people-grid{ grid-template-columns:1fr; gap:10px; }
   .emp-card{ padding:14px; }
-  .tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  table{ min-width:560px; }
-  th,td{ padding:8px 10px; font-size:12px; }
+  .tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:calc(100vw - 24px); }
+  table{ min-width:420px; width:max-content; }
+  th,td{ padding:7px 8px; font-size:11.5px; white-space:nowrap; }
+  /* Hide less important columns on mobile */
+  .col-site, .col-method{ display:none; }
   .form-grid{ grid-template-columns:1fr; }
   .modal-box{ margin:8px; padding:18px; border-radius:14px; }
   .auth-card{ padding:24px 18px; margin:12px; }
@@ -453,7 +455,7 @@ tr:hover td{background:rgba(13,122,107,0.03);}
   .clock-btn{ width:52px; height:52px; font-size:18px; }
   .pulse-ring{ width:60px; height:60px; }
   .presence-kpi-grid{ grid-template-columns:repeat(2,1fr); gap:8px; }
-  .kpi-grid{ grid-template-columns:1fr 1fr; gap:8px; }
+  .kpi-grid{ grid-template-columns:repeat(3,1fr); gap:6px; }
   .att-stats{ grid-template-columns:1fr 1fr; gap:8px; }
   .kpi-val{ font-size:18px; }
   .auth-card{ padding:20px 14px; border-radius:16px; }
@@ -2106,7 +2108,7 @@ async function loadRecentAttLogs(){
     updateLogsKPI(data);
     const todayStr=new Date().toISOString().split('T')[0];
     wrap.innerHTML=`<div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>In</th><th>Out</th><th>Duration</th><th>Type</th><th>Site</th><th>Method</th><th></th></tr></thead>
+      <thead><tr><th>Date</th><th>In</th><th>Out</th><th>Dur</th><th>Type</th><th class='col-site'>Site</th><th class='col-method'>Method</th><th></th></tr></thead>
       <tbody>${data.map(r=>{
         const rowDate=r.clock_in_time.split('T')[0];
         const isStale=!r.clock_out_time&&rowDate!==todayStr;
@@ -2119,8 +2121,8 @@ async function loadRecentAttLogs(){
           <td>${fmtDate(r.clock_in_time)}${isStale?'<div style="font-size:9.5px;color:var(--warning);font-weight:600">Missed clock-out</div>':''}</td>
           <td>${fmtTime(r.clock_in_time)}</td><td>${outCell}</td><td>${durCell}</td>
           <td><span class="loc-badge ${locClass(r.location_type)}">${locIcon(r.location_type)} ${r.location_type||'—'}</span></td>
-          <td>${r.site_name?`<span class="badge badge-teal" style="font-size:10px">🏢 ${escHtml(r.site_name)}</span>`:'—'}</td>
-          <td><span class="detect-badge">${r.detection_method||'—'}</span></td>
+          <td class="col-site">${r.site_name?`<span class="badge badge-teal" style="font-size:10px">🏢 ${escHtml(r.site_name)}</span>`:'—'}</td>
+          <td class="col-method"><span class="detect-badge">${r.detection_method||'—'}</span></td>
           ${actionCell}
         </tr>`;
       }).join('')}</tbody></table></div>`;
