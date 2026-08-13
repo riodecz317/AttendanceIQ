@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AttendanceIQ — Clinical Group Portal</title>
 <meta name="theme-color" content="#0A1628">
 <meta name="mobile-web-app-capable" content="yes">
@@ -17,6 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{max-width:100%;overflow-x:hidden;}
 
 :root {
   /* Clinical palette — deep navy/teal */
@@ -147,8 +148,9 @@ body {
   display:flex;align-items:center;justify-content:space-between;
   padding:0 24px;position:sticky;top:0;z-index:200;
   box-shadow:0 1px 4px rgba(0,0,0,0.05);
+  overflow:hidden; width:100%;
 }
-.topbar-brand{display:flex;align-items:center;gap:12px;}
+.topbar-brand{display:flex;align-items:center;gap:12px;flex-shrink:0;}
 .topbar-mark {
   width:32px;height:32px;border-radius:9px;
   background:linear-gradient(135deg,var(--brand),#0A4A8A);
@@ -158,7 +160,7 @@ body {
 }
 .topbar-name{font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:800;color:var(--heading);}
 .topbar-sub{font-size:11px;color:var(--muted);margin-top:1px;}
-.topbar-right{display:flex;align-items:center;gap:8px;}
+.topbar-right{display:flex;align-items:center;gap:8px;min-width:0;flex-shrink:1;overflow:hidden;}
 .tb-avatar{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 .tb-btn{border:1.5px solid var(--border);background:var(--surface2);border-radius:var(--radius);padding:6px 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:all var(--t-fast);}
 .tb-btn:hover{background:var(--bg);color:var(--heading);}
@@ -378,6 +380,7 @@ tr:hover td{background:rgba(13,122,107,0.03);}
   .topbar-name{ font-size:13px; }
   #liveIndicator .live-badge{ padding:2px 6px; font-size:10px; }
   #tbEmail{ display:none; }
+  .tb-userinfo{ display:none; }  /* hide name/role on mobile — avatar only */
   #navTabs{ padding:0 max(10px,env(safe-area-inset-left)); overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .nav-tab{ padding:10px 12px; font-size:12px; gap:5px; }
   #appMain{ padding:12px; max-width:100%; }
@@ -653,12 +656,12 @@ tr:hover td{background:rgba(13,122,107,0.03);}
     </span>
     <span id="syncDot" class="sync-dot" style="display:none"></span>
     <span id="syncLabel" style="display:none">Connecting…</span>
-    <div style="display:flex;align-items:center;gap:6px;margin-left:12px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-left:8px;min-width:0;overflow:hidden;">
       <div class="tb-avatar" id="tbAvatar" title="Account">--</div>
-      <div style="line-height:1.2;">
-        <div style="font-size:12.5px;font-weight:700;color:var(--heading)" id="tbName">—</div>
+      <div class="tb-userinfo" style="line-height:1.2;min-width:0;overflow:hidden;">
+        <div style="font-size:12.5px;font-weight:700;color:var(--heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;" id="tbName">—</div>
         <div style="font-size:10.5px;color:var(--muted)" id="tbRole">—</div>
-        <div style="font-size:10px;color:var(--disabled);margin-top:1px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="tbEmail"></div>
+        <div style="font-size:10px;color:var(--disabled);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="tbEmail"></div>
       </div>
     </div>
     <button class="tb-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
