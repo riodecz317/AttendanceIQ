@@ -929,8 +929,7 @@ tr:hover td{background:rgba(13,122,107,0.03);}
       <div>
         <div class="section-title">Team Presence &amp; Attendance</div>
         <div class="section-sub" id="adminSyncSub">Clinical Group workforce — real-time view</div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      </div>      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select class="form-select" id="adminRangeFilter" onchange="loadTeamLogs()" style="width:auto;padding:7px 10px;font-size:12.5px;">
           <option value="7">Last 7 days</option>
           <option value="14">Last 14 days</option>
@@ -2025,28 +2024,71 @@ function _isAdmin(){
   return ['admin','super_admin'].includes(_sbProfile.role)
       || ADMIN_EMAILS.includes((_sbUser?.email||'').toLowerCase());
 }
-function _isManager(){
+// Level 1 — Manager: sees full span (direct reports + their direct reports)
+function _isManagerL1(){
   return _isAdmin()
-      || ['manager','program_manager','dept_manager','supervisor'].includes(_sbProfile.role);
+      || ['manager','program_manager','dept_manager'].includes(_sbProfile.role);
+}
+// Level 2 — Supervisor: sees only direct reports
+function _isSupervisorL2(){
+  return ['supervisor'].includes(_sbProfile.role);
+}
+// Legacy alias used elsewhere
+function _isManager(){
+  return _isManagerL1() || _isSupervisorL2();
 }
 function _isReportsSpecialist(){
   return _sbProfile.role === 'reports_specialist';
 }
-// Who can see the Team View tab and export team data
+
+// Who can see the Team View tab
 function _canViewTeam(){
   if(_isAdmin() || _isManager() || _isReportsSpecialist()) return true;
-  // Also allow any user who has at least one direct report assigned to them
-  // (a 'member' role user can still be a supervisor in the hierarchy)
+  // Also allow any member-role user who has direct reports assigned in hierarchy
   if(_sbUser && _allMembers.length){
     const hasDirectReports = _allMembers.some(m=>m.manager_id===_sbUser.id);
     if(hasDirectReports) return true;
   }
   return false;
 }
-// Export scope: admin + reports_specialist = ALL data; managers/supervisors = own team only
+
+// ── SPAN CALCULATION ──────────────────────────────────────────
+// Returns the full set of user_ids a manager/supervisor can see.
+// Manager (L1): recursive — own direct reports + all their reports (full subtree)
+// Supervisor (L2): only their immediate direct reports
+// Admin: everyone
+function _getMySpan(){
+  if(!_sbUser || !_allMembers.length) return new Set();
+  if(_isAdmin() || _isReportsSpecialist()) return new Set(_allMembers.map(m=>m.user_id));
+
+  const myId = _sbUser.id;
+  const span = new Set([myId]); // always include self
+
+  if(_isManagerL1()){
+    // Recursive BFS — collect full subtree under this manager
+    const queue = [myId];
+    while(queue.length){
+      const parentId = queue.shift();
+      _allMembers.forEach(m=>{
+        if(m.manager_id===parentId && !span.has(m.user_id)){
+          span.add(m.user_id);
+          queue.push(m.user_id); // recurse into their reports too
+        }
+      });
+    }
+  } else {
+    // Supervisor L2 or member-with-reports — only immediate direct reports
+    _allMembers.forEach(m=>{
+      if(m.manager_id===myId) span.add(m.user_id);
+    });
+  }
+  return span;
+}
+
+// Export scope
 function _exportScope(){
   if(_isAdmin() || _isReportsSpecialist()) return 'all';
-  if(_isManager()) return 'team';
+  if(_canViewTeam()) return 'span'; // uses _getMySpan()
   return 'own';
 }
 
@@ -2961,11 +3003,25 @@ function clearActivityFeed(){_activityLog=[];renderActivityFeed();}
 //  ADMIN VIEW INITIALIZATION
 // ══════════════════════════════════════════════════════════════
 async function initAdminView(){
-  // aiq_profiles already loaded by onAuthSuccess before canViewTeam check
   if(!_allMembers.length) await loadTeamMembers();
   await fetchAllPresence();
   await fetchTodayAttendance();
   await loadTeamLogs();
+
+  // Show span context in subtitle
+  const span=_getMySpan();
+  const spanSize=Math.max(0, span.size-1); // exclude self
+  const sub=$id('adminSyncSub');
+  if(sub){
+    if(_isAdmin()||_isReportsSpecialist()){
+      sub.textContent='Clinical Group workforce — full visibility';
+    } else if(_isManagerL1()){
+      sub.textContent=`Manager view — ${spanSize} member${spanSize!==1?'s':''} in your span (full subtree)`;
+    } else {
+      sub.textContent=`Supervisor view — ${spanSize} direct report${spanSize!==1?'s':''}`;
+    }
+  }
+
   renderPresenceDashboard();
   updatePresenceKPIs();
   setText('presenceLastSync','Last sync: '+new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',hour12:true}));
@@ -2985,9 +3041,12 @@ async function fetchTodayAttendance(){
     if(error) throw error;
     if(!data) return;
 
-    // Build a map of user_id → most recent record today
+    const mySpan = _getMySpan();
+
+    // Build a map of user_id → most recent record today (within span)
     const latestPerUser = new Map();
     data.forEach(r=>{
+      if(!mySpan.has(r.user_id)) return; // filter to span
       if(!latestPerUser.has(r.user_id)) latestPerUser.set(r.user_id, r);
     });
 
@@ -3109,31 +3168,29 @@ function getEffectiveStatus(emp){
 }
 
 function getVisibleMembers(){
-  // Determine which members this user can see based on role
   const filter = $id('presenceFilter')?.value || 'all';
-  const isFullAdmin = _isAdmin();
-  // isScopedUser: any non-admin who has direct reports (manager, supervisor, or member-as-supervisor)
-  const isScopedUser = !isFullAdmin && _allMembers.some(m=>m.manager_id===_sbUser?.id);
+  const isFullAdmin = _isAdmin() || _isReportsSpecialist();
 
-  // Scoped users default to their direct reports
-  let base = _allMembers;
-  if(isScopedUser){
-    const directReportIds = new Set(_allMembers.filter(m=>m.manager_id===_sbUser?.id).map(m=>m.user_id));
-    directReportIds.add(_sbUser?.id); // always include self
-    base = _allMembers.filter(m=>directReportIds.has(m.user_id));
-  }
+  // Get the span this user is allowed to see
+  const mySpan = _getMySpan();
 
-  // Apply presence filter
+  // Non-admins are always restricted to their span
+  let base = isFullAdmin
+    ? _allMembers
+    : _allMembers.filter(m=>mySpan.has(m.user_id));
+
+  // Apply presence filter on top of the base
   if(filter==='direct'){
-    const drIds = new Set(_allMembers.filter(m=>m.manager_id===_sbUser?.id).map(m=>m.user_id));
+    // Direct reports only (immediate — not full subtree)
+    const drIds=new Set(_allMembers.filter(m=>m.manager_id===_sbUser?.id).map(m=>m.user_id));
     drIds.add(_sbUser?.id);
-    base = _allMembers.filter(m=>drIds.has(m.user_id));
+    base=_allMembers.filter(m=>drIds.has(m.user_id));
   } else if(filter==='online'){
-    base = base.filter(m=>getEffectiveStatus(_employeeState.get(m.user_id)||{})!=='offline');
+    base=base.filter(m=>getEffectiveStatus(_employeeState.get(m.user_id)||{})!=='offline');
   } else if(filter==='clocked'){
-    base = base.filter(m=>(_employeeState.get(m.user_id)||{}).attendance?.clocked_in);
+    base=base.filter(m=>(_employeeState.get(m.user_id)||{}).attendance?.clocked_in);
   } else if(filter==='offline'){
-    base = base.filter(m=>getEffectiveStatus(_employeeState.get(m.user_id)||{})==='offline');
+    base=base.filter(m=>getEffectiveStatus(_employeeState.get(m.user_id)||{})==='offline');
   }
   return base;
 }
@@ -3148,11 +3205,14 @@ function renderPresenceDashboard(){
   const visible = getVisibleMembers();
 
   // Auto-set filter label for managers
-  // Auto-default scoped users (non-admins with direct reports) to "My Direct Reports"
+  // Auto-default: managers see "All Members" (their full span), supervisors see "My Direct Reports"
   const filterEl=$id('presenceFilter');
-  if(!_isAdmin() && filterEl && filterEl.value==='all'){
-    const directCount = _allMembers.filter(m=>m.manager_id===_sbUser?.id).length;
-    if(directCount>0) filterEl.value='direct';
+  if(!_isAdmin() && !_isReportsSpecialist() && filterEl && filterEl.value==='all'){
+    if(_isSupervisorL2()){
+      // Supervisors default to direct reports only
+      filterEl.value='direct';
+    }
+    // Managers (L1) keep 'all' which already shows their full span via _getMySpan()
   }
 
   if(!visible.length){
@@ -3268,11 +3328,10 @@ async function loadTeamLogs(){
     const{data:profiles2}=await _sb.from('aiq_profiles').select('user_id,full_name,department');
     const profileMap2=new Map((profiles2||[]).map(p=>[p.user_id,p]));
     let data=rawData||[];
-    if(scope==='team'){
-      // Managers see only direct reports; admins see all
-      const drIds=new Set(_allMembers.filter(m=>m.manager_id===_sbUser.id).map(m=>m.user_id));
-      drIds.add(_sbUser.id); // include self
-      data=data.filter(r=>drIds.has(r.user_id));
+    if(scope==='span'){
+      // Use full span: managers see subtree, supervisors see direct reports only
+      const spanIds=_getMySpan();
+      data=data.filter(r=>spanIds.has(r.user_id));
     }
     if(!data.length){wrap.innerHTML='<div class="empty-state" style="padding:24px"><div class="empty-icon">📊</div><div class="empty-sub">No records in this period</div></div>';updateAdminKPIs([]);return;}
     // Seed today's attendance into employee state — always overwrite (no skip)
@@ -3347,11 +3406,10 @@ async function exportTeamCSV(){
 
     // Step 3: For 'team' scope, filter logs to only this manager's team members
     let filteredLogs = logs;
-    if(scope === 'team'){
-      // Managers see only direct reports
-      const drIds=new Set(_allMembers.filter(m=>m.manager_id===_sbUser.id).map(m=>m.user_id));
-      drIds.add(_sbUser.id);
-      filteredLogs = logs.filter(r=>drIds.has(r.user_id));
+    if(scope === 'span'){
+      // Use full span: managers see subtree, supervisors see direct reports only
+      const spanIds=_getMySpan();
+      filteredLogs = logs.filter(r=>spanIds.has(r.user_id));
     }
 
     if(!filteredLogs.length){showToast('No records in your scope to export','info');return;}
