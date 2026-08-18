@@ -960,6 +960,7 @@ tr:hover td{background:rgba(13,122,107,0.03);}
       <button class="view-tab" onclick="switchAdminView('logs')" id="vt-logs">📋 Attendance Logs</button>
       <button class="view-tab" onclick="switchAdminView('activity')" id="vt-activity">📡 Activity Feed</button>
       <button class="view-tab" onclick="switchAdminView('hierarchy')" id="vt-hierarchy">🏗 Hierarchy</button>
+      <button class="view-tab" onclick="switchAdminView('users')" id="vt-users" style="display:none">👥 Users</button>
     </div>
 
     <!-- PRESENCE VIEW -->
@@ -1028,6 +1029,77 @@ tr:hover td{background:rgba(13,122,107,0.03);}
         <div class="card-head"><span class="card-title">📊 Org Chart Preview</span></div>
         <div class="card-body" id="orgChartBody">
           <div class="empty-state" style="padding:16px"><div class="empty-sub">Save hierarchy to see org chart</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS / ACCOUNT MANAGEMENT VIEW (Admin only) -->
+    <div id="adminView-users" style="display:none">
+
+      <!-- Active users -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head">
+          <span class="card-title">👥 Active Users</span>
+          <span style="font-size:11.5px;color:var(--muted)" id="userMgmtCount"></span>
+        </div>
+        <div class="card-body" id="userMgmtGrid">
+          <div class="empty-state" style="padding:16px"><div class="empty-sub">Loading users…</div></div>
+        </div>
+      </div>
+
+      <!-- Deletion requests pending approval -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head">
+          <span class="card-title">🗑 Deletion Requests</span>
+          <span class="badge" id="delReqBadge" style="background:var(--danger-soft,rgba(231,76,60,.1));color:var(--danger);border:1px solid rgba(231,76,60,.2);padding:2px 10px;border-radius:99px;font-size:11.5px;display:none">0 pending</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">
+            Deletion requests require admin approval before removing a user from the database. Deactivated users are kept in records — deletions are permanent.
+          </p>
+          <div id="delReqGrid">
+            <div class="empty-state" style="padding:12px"><div class="empty-sub">No pending deletion requests</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deactivated / suspended users -->
+      <div class="card">
+        <div class="card-head"><span class="card-title">🚫 Deactivated Users</span></div>
+        <div class="card-body" id="deactivatedGrid">
+          <div class="empty-state" style="padding:12px"><div class="empty-sub">No deactivated users</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DELETE REQUEST MODAL ══ -->
+  <div class="modal-overlay hidden" id="delReqModal">
+    <div class="modal-box" style="max-width:480px">
+      <div class="modal-head">
+        <span class="modal-title">🗑 Request Account Deletion</span>
+        <button class="modal-close" onclick="closeModal('delReqModal')">✕</button>
+      </div>
+      <div style="padding:20px">
+        <div id="delReqUserInfo" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px"></div>
+        <div class="form-field" style="margin-bottom:14px">
+          <label class="form-label">Reason for deletion <span style="color:var(--danger)">*</span></label>
+          <select class="form-select" id="delReqReason" style="margin-bottom:8px">
+            <option value="">— Select reason —</option>
+            <option value="resigned">Resigned / Voluntary separation</option>
+            <option value="terminated">Terminated</option>
+            <option value="end_of_contract">End of contract</option>
+            <option value="duplicate">Duplicate account</option>
+            <option value="other">Other</option>
+          </select>
+          <textarea class="form-input" id="delReqNotes" placeholder="Additional notes (required for Other)…" style="height:80px;resize:vertical;font-family:inherit;font-size:13px"></textarea>
+        </div>
+        <div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:8px;padding:12px;font-size:12.5px;color:var(--danger);margin-bottom:16px">
+          ⚠ This submits a deletion request. An admin must approve before any data is removed. The user will be deactivated immediately pending approval.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-secondary" onclick="closeModal('delReqModal')">Cancel</button>
+          <button class="btn" style="background:var(--danger);color:#fff" onclick="submitDelRequest()">Submit Request</button>
         </div>
       </div>
     </div>
@@ -3022,12 +3094,191 @@ async function initAdminView(){
     }
   }
 
+  // Show Users tab for admins only
+  const usersTab=$id('vt-users');
+  if(usersTab) usersTab.style.display=_isAdmin()?'':'none';
+
   renderPresenceDashboard();
   updatePresenceKPIs();
   setText('presenceLastSync','Last sync: '+new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',hour12:true}));
 }
 
-// Fetch today's active attendance for ALL team members and seed _employeeState
+// ══════════════════════════════════════════════════════════════
+//  USER MANAGEMENT — Deactivate / Delete Request / Approve
+// ══════════════════════════════════════════════════════════════
+
+let _pendingDelUserId=null; // user selected for deletion request
+
+async function loadUserManagement(){
+  if(!_sb||!_sbUser||!_isAdmin()){ showToast('Admin access required','warn'); return; }
+
+  // Fetch all aiq_access records to know status
+  const{data:accessRows}=await _sb.from('aiq_access').select('*');
+  const accessMap=new Map((accessRows||[]).map(r=>[r.user_id,r]));
+
+  // Build active, deactivated, pending-deletion lists
+  const active=[], deactivated=[], pending=[];
+  _allMembers.forEach(m=>{
+    const acc=accessMap.get(m.user_id);
+    if(!acc||acc.status==='active') active.push({m,acc});
+    else if(acc.status==='suspended') deactivated.push({m,acc});
+    else if(acc.status==='pending_deletion') pending.push({m,acc});
+  });
+
+  setText('userMgmtCount', `${active.length} active · ${deactivated.length} deactivated · ${pending.length} pending deletion`);
+
+  // Render active users
+  const grid=$id('userMgmtGrid');
+  if(grid){
+    if(!active.length){ grid.innerHTML='<div class="empty-state" style="padding:12px"><div class="empty-sub">No active users</div></div>'; }
+    else grid.innerHTML=active.map(({m,acc})=>buildUserRow(m,acc,'active')).join('');
+  }
+
+  // Render pending deletion requests
+  const delBadge=$id('delReqBadge');
+  if(delBadge){ delBadge.textContent=pending.length+' pending'; delBadge.style.display=pending.length?'':'none'; }
+  const delGrid=$id('delReqGrid');
+  if(delGrid){
+    if(!pending.length){ delGrid.innerHTML='<div class="empty-state" style="padding:12px"><div class="empty-sub">No pending deletion requests</div></div>'; }
+    else delGrid.innerHTML=pending.map(({m,acc})=>buildUserRow(m,acc,'pending_deletion')).join('');
+  }
+
+  // Render deactivated users
+  const deacGrid=$id('deactivatedGrid');
+  if(deacGrid){
+    if(!deactivated.length){ deacGrid.innerHTML='<div class="empty-state" style="padding:12px"><div class="empty-sub">No deactivated users</div></div>'; }
+    else deacGrid.innerHTML=deactivated.map(({m,acc})=>buildUserRow(m,acc,'suspended')).join('');
+  }
+}
+
+function buildUserRow(m, acc, status){
+  const color=nameToColor(m.full_name||'');
+  const initials=nameToInitials(m.full_name||m.email||'?');
+  const isSelf=m.user_id===_sbUser?.id;
+
+  let statusBadge='';
+  if(status==='active') statusBadge='<span style="background:rgba(22,160,133,.12);color:#0D7A6B;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">● Active</span>';
+  else if(status==='suspended') statusBadge='<span style="background:rgba(230,126,34,.12);color:#c0641a;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">⏸ Deactivated</span>';
+  else if(status==='pending_deletion') statusBadge='<span style="background:rgba(231,76,60,.12);color:var(--danger);padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">🗑 Pending Deletion</span>';
+
+  let reason='';
+  if(acc?.notes) reason=`<div style="font-size:11px;color:var(--muted);margin-top:4px">Reason: ${escHtml(acc.notes)}</div>`;
+
+  let actions='';
+  if(!isSelf){
+    if(status==='active'){
+      actions=`
+        <button class="btn btn-secondary btn-sm" onclick="deactivateUser('${m.user_id}','${escHtml(m.full_name||m.email)}')" title="Deactivate — blocks login but keeps data">⏸ Deactivate</button>
+        <button class="btn btn-sm" style="background:rgba(231,76,60,.1);color:var(--danger);border:1px solid rgba(231,76,60,.2)" onclick="openDelRequest('${m.user_id}','${escHtml(m.full_name||m.email)}','${escHtml(m.email||'')}','${escHtml(m.role||'member')}')" title="Request deletion — requires approval">🗑 Request Deletion</button>`;
+    } else if(status==='suspended'){
+      actions=`
+        <button class="btn btn-secondary btn-sm" onclick="reactivateUser('${m.user_id}')" title="Re-enable account">▶ Reactivate</button>
+        <button class="btn btn-sm" style="background:rgba(231,76,60,.1);color:var(--danger);border:1px solid rgba(231,76,60,.2)" onclick="openDelRequest('${m.user_id}','${escHtml(m.full_name||m.email)}','${escHtml(m.email||'')}','${escHtml(m.role||'member')}')" title="Request deletion">🗑 Request Deletion</button>`;
+    } else if(status==='pending_deletion'){
+      actions=`
+        <button class="btn btn-secondary btn-sm" onclick="cancelDelRequest('${m.user_id}')">✕ Cancel Request</button>
+        <button class="btn btn-sm" style="background:var(--danger);color:#fff" onclick="approveDelUser('${m.user_id}','${escHtml(m.full_name||m.email)}')" title="Permanently removes from database">✅ Approve &amp; Delete</button>`;
+    }
+  } else {
+    actions='<span style="font-size:11.5px;color:var(--muted)">Cannot modify own account</span>';
+  }
+
+  return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:180px">
+      <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.full_name||m.email)}</div>
+        <div style="font-size:11px;color:var(--muted)">${m.global_id?m.global_id+' · ':''}${m.role||'member'}${m.department?' · '+m.department:''}</div>
+        <div style="font-size:10.5px;color:var(--disabled);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${escHtml(m.email||'')}</div>
+        ${reason}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      ${statusBadge}
+      ${actions}
+    </div>
+  </div>`;
+}
+
+// ── DEACTIVATE ───────────────────────────────────────────────
+async function deactivateUser(userId, name){
+  if(!confirm(`Deactivate ${name}?\n\nThis blocks their login immediately but keeps all their attendance data. You can reactivate them later.`)) return;
+  try{
+    await _sb.from('aiq_access').upsert({user_id:userId,status:'suspended',notes:'Deactivated by admin: '+(_sbProfile.full_name||_sbUser.email),updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    showToast(`⏸ ${name} deactivated — login blocked`,'success',4000);
+    loadUserManagement();
+  }catch(e){ showToast('Failed: '+e.message,'error'); }
+}
+
+async function reactivateUser(userId){
+  try{
+    await _sb.from('aiq_access').upsert({user_id:userId,status:'active',notes:null,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    showToast('✅ Account reactivated','success',3000);
+    loadUserManagement();
+  }catch(e){ showToast('Failed: '+e.message,'error'); }
+}
+
+// ── DELETION REQUEST FLOW ────────────────────────────────────
+function openDelRequest(userId, name, email, role){
+  _pendingDelUserId=userId;
+  const info=$id('delReqUserInfo');
+  if(info) info.innerHTML=`<strong>${escHtml(name)}</strong><br><span style="color:var(--muted);font-size:12px">${escHtml(email)} · ${role}</span>`;
+  $id('delReqReason').value='';
+  $id('delReqNotes').value='';
+  $id('delReqModal').classList.remove('hidden');
+}
+
+async function submitDelRequest(){
+  const reason=$id('delReqReason').value;
+  const notes=$id('delReqNotes').value.trim();
+  if(!reason){ showToast('Please select a reason','warn'); return; }
+  if(reason==='other'&&!notes){ showToast('Please provide additional notes for "Other"','warn'); return; }
+  if(!_pendingDelUserId) return;
+
+  const fullNote=`[${reason.replace(/_/g,' ')}] ${notes} — Requested by: ${_sbProfile.full_name||_sbUser.email} on ${new Date().toLocaleDateString()}`;
+  try{
+    await _sb.from('aiq_access').upsert({
+      user_id:_pendingDelUserId,
+      status:'pending_deletion',
+      notes:fullNote,
+      updated_at:new Date().toISOString(),
+    },{onConflict:'user_id'});
+    $id('delReqModal').classList.add('hidden');
+    showToast('🗑 Deletion request submitted — awaiting admin approval','success',5000);
+    _pendingDelUserId=null;
+    loadUserManagement();
+  }catch(e){ showToast('Failed: '+e.message,'error'); }
+}
+
+async function cancelDelRequest(userId){
+  try{
+    await _sb.from('aiq_access').upsert({user_id:userId,status:'active',notes:null,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    showToast('Request cancelled — account restored to active','success',3000);
+    loadUserManagement();
+  }catch(e){ showToast('Failed: '+e.message,'error'); }
+}
+
+// ── APPROVE DELETION ─────────────────────────────────────────
+async function approveDelUser(userId, name){
+  if(!confirm(`⚠ PERMANENTLY DELETE ${name}?\n\nThis removes their profile from aiq_profiles.\nAttendance logs are retained for records.\nThis CANNOT be undone.\n\nType "DELETE" in the next prompt to confirm.`)) return;
+  const confirm2=prompt('Type DELETE to confirm permanent removal:');
+  if(confirm2!=='DELETE'){ showToast('Deletion cancelled — confirmation not matched','info'); return; }
+  try{
+    // 1. Remove from aiq_profiles (cascades to aiq_presence via FK)
+    const{error:profErr}=await _sb.from('aiq_profiles').delete().eq('user_id',userId);
+    if(profErr) throw profErr;
+    // 2. Remove from aiq_access
+    await _sb.from('aiq_access').delete().eq('user_id',userId);
+    // 3. Update local state
+    _allMembers=_allMembers.filter(m=>m.user_id!==userId);
+    _employeeState.delete(userId);
+
+    showToast(`✅ ${name} permanently removed from database`,'success',5000);
+    loadUserManagement();
+    renderPresenceDashboard();
+    updatePresenceKPIs();
+  }catch(e){ showToast('Deletion failed: '+e.message,'error'); console.error(e); }
+}
 // Called on init, reconcile, and presence dashboard refresh.
 // Always overwrites attendance state (never skips) so Realtime + DB stay in sync.
 async function fetchTodayAttendance(){
@@ -3301,13 +3552,14 @@ function updatePresenceKPIs(){
 
 function switchAdminView(view){
   _currentAdminView=view;
-  ['presence','logs','activity','hierarchy'].forEach(v=>{
+  ['presence','logs','activity','hierarchy','users'].forEach(v=>{
     const el=$id('adminView-'+v);if(el)el.style.display=v===view?'':'none';
     const tab=$id('vt-'+v);if(tab)tab.classList.toggle('active',v===view);
   });
   if(view==='logs') loadTeamLogs();
   if(view==='activity') renderActivityFeed();
   if(view==='hierarchy') loadHierarchyEditor();
+  if(view==='users') loadUserManagement();
 }
 
 async function loadTeamLogs(){
